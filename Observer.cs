@@ -1,87 +1,96 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using System;
 
 public class Observer
 {
-    private class eventParam { public GameObject obj; public string eventName; public Action action; }
-    private static List<eventParam> eventsList = new List<eventParam>();
+    private struct CustomEvent
+    {
+        public GameObject Obj { get; }
+        public Action Action { get; }
 
-    //Add a custom Event
+        public CustomEvent(GameObject obj, Action action)
+        {
+            Obj = obj;
+            Action = action;
+        }
+    }
+
+    private static Dictionary<string, List<CustomEvent>> eventsDict = new Dictionary<string, List<CustomEvent>>();
+
+    //Register a new evnet
     public static void RegisterCustomEvent(GameObject obj, string eventName, Action action)
     {
-        eventParam param = new eventParam();
-        param.obj = obj;
-        param.eventName = eventName;
-        param.action = action;
-        eventsList.Add(param);
-        Debug.Log("Custom Event: " + eventName + " Added");
+        var customEvent = new CustomEvent(obj, action);
+
+        if (!eventsDict.ContainsKey(eventName))
+        {
+            eventsDict[eventName] = new List<CustomEvent>();
+        }
+
+        eventsDict[eventName].Add(customEvent);
+        Debug.Log("Registered Custom Event: " + eventName + " for object: "+ obj.name);
     }
 
-    //Dispatch a custom event by name
+
+    //Fire a new evnet
     public static void DispatchCustomEvent(string eventName)
     {
-        for (int i = 0; i < eventsList.Count; i++)
+        if (!eventsDict.ContainsKey(eventName))
         {
-            if (eventsList[i].obj == null)
+            //Debug.LogError($"No event registered with name: {eventName}");
+            return;
+        }
+
+        for (int i = eventsDict[eventName].Count - 1; i >= 0; i--)
+        {
+            var customEvent = eventsDict[eventName][i];
+
+            if (customEvent.Obj == null)
             {
-                Debug.Log("Custom Event: " + eventName + " on Null Object Removed");
-                eventsList.RemoveAt(i);
-                i--;
+                eventsDict[eventName].RemoveAt(i);
             }
-            else if (string.Compare(eventsList[i].eventName, eventName)==0)
+            else
             {
-                eventsList[i].action?.Invoke();
-                Debug.Log("Custom Event: " + eventName + " Called from Object: "+eventsList[i].obj.name);
+                customEvent.Action?.Invoke();
             }
         }
     }
 
-    //Unregister a custom event with name on the object
+    //Unlisten an event on object with name
     public static void UnregisterCustomEvent(GameObject obj, string eventName)
     {
-        for (int i = 0; i < eventsList.Count; i++)
+        for (int i = eventsDict[eventName].Count - 1; i >= 0; i--)
         {
-            if (ReferenceEquals(obj,eventsList[i].obj) && string.Compare(eventsList[i].eventName, eventName) == 0)
+            if (ReferenceEquals(obj, eventsDict[eventName][i].Obj))
             {
-                Debug.Log("Custom Event: " + eventName + " Removed from Object: "+eventsList[i].obj.name);
-                eventsList.RemoveAt(i);
-                i--;
+                Debug.Log("Custom Event: " + eventName + " Removed from object: "+eventsDict[eventName][i].Obj.name);
+                eventsDict[eventName].RemoveAt(i);
             }
         }
     }
 
-    //Unregister all custom events with name
+    //Unlisten all events with name
     public static void UnregisterAllCustomEventsWithName(string eventName)
     {
-        for (int i = 0; i < eventsList.Count; i++)
-        {
-            if (string.Compare(eventsList[i].eventName, eventName) == 0)
-            {
-                Debug.Log("Custom Event: " + eventName + " Removed for All Object: " + eventsList[i].obj.name);
-                eventsList.RemoveAt(i);
-                i--;
-            }
-        }
+        Debug.Log("Custom Event: " + eventName + " Removed");
+        eventsDict.Remove(eventName);
     }
 
-    //Unregister all custom events on the object
+    //Unlisten all events on object
     public static void UnregisterAllCustomEventsOnObject(GameObject obj)
     {
-        for (int i = 0; i < eventsList.Count; i++)
+        foreach (var pair in eventsDict)
         {
-            if (ReferenceEquals(obj, eventsList[i].obj))
-            {
-                Debug.Log("Custom Event for obj: " + obj.name + " Removed" + eventsList[i].obj.name);
-                eventsList.RemoveAt(i);
-                i--;
-            }
+            pair.Value.RemoveAll(customEvent => ReferenceEquals(customEvent.Obj, obj));
+            Debug.Log("Removed all custom events on obj: " + obj.name);
         }
     }
 
-    //unregister all custom events
+    //Unlisten all events
     public static void UnregisterAllCustomEvents()
     {
-        eventsList.Clear();
+        eventsDict.Clear();
+        Debug.Log("Removed all custom events");
     }
 }
